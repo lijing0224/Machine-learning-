@@ -1,0 +1,94 @@
+import numpy as np
+import operator
+from os import listdir
+
+# 分类器
+def classify0(inx, dataSet, labels, k):
+    dataSetSize = dataSet.shape[0]   # 返回dataset第一维的长度，也就是行数
+    diffMat = np.tile(inx, (dataSetSize, 1))-dataSet   # tile表示把inx行向量按列方向重复datasetsize次
+    sqDiffMat = diffMat**2
+    sqDistances = sqDiffMat.sum(axis=1)  # 按列求和
+    distances = sqDistances**0.5
+    sortedDistIndicies = distances.argsort()  # 返回的是数组从小到大的索引值
+    classCount = {}    # 定义一个空字典
+    for i in range(k):
+        voteLabel = labels[sortedDistIndicies[i]]  # 返回前k个距离最小的样本的标签值
+        classCount[voteLabel] = classCount.get(voteLabel, 0)+1   # get 表示返回指定键的值
+        # lambda表示输入classCount返回冒号右边的值，reverse=True表示按照降序排列
+        sortedClassCount=sorted(classCount.items(), key=lambda classCount: classCount[1], reverse=True)
+    return sortedClassCount[0][0]
+
+# 把.txt文件转换成矩阵形式
+def file2matrix(file):
+    file = open(file) # 返回文件对象
+    arr = file.readlines()  # 返回全部行，是list形式，每一行为list的一个元素
+    number = len(arr)  # 返回对象长度
+    returnMat = np.zeros((number,3))
+    index = 0
+    labelMat = []
+    for line in arr:
+        #line = line.strip('\n')
+        #newline = line.split(' ')
+        newline = line.strip('\n').split(' ') # 处理逐行数据，strip表示把头尾的'\n'去掉，split表示以空格来分割行数据
+                                              #  然后把处理后的行数据返回到newline列表中
+        returnMat[index,:] = newline[0:3] #表示列表的0,1,2列数据放到index行中
+        labelMat.append(int(newline[-1]))
+        index+=1
+    return returnMat,labelMat
+
+# 归一化
+def autoNorm(dataSet):
+    minVals = dataSet.min(0)
+
+    maxVals = dataSet.max(0)
+    ranges = maxVals-minVals
+    normDataSet = np.zeros(np.shape(dataSet))
+    m = normDataSet.shape[0]
+    A = normDataSet
+    A = np.tile(minVals, (m,1))
+    normDataSet = dataSet-A
+    normDataSet = normDataSet/np.tile(ranges,(m,1))
+    return normDataSet
+
+# 把图像转化成向量的形式
+def img2vector(filename):
+    returnVect = np.zeros((1,1024))
+    fr = open(filename)
+    for i in range(32):
+        lineStr = fr.readline() # readline()表示从首行开始，每次读取一行
+        for j in range(32):
+            returnVect[0,32*i+j] = int(lineStr[j]) #int()函数用于将一个字符串或数字转换成整型
+    return returnVect   # 一张图片转化成一行后的数组
+
+# 手写数字识别系统的测试代码
+def handwritingClassTest():
+    hwLabels = []
+    trainingFileList = listdir('E:/workspace/digits/trainingDigits')
+    m=len(trainingFileList)
+    trainingMat = np.zeros((m,1024))
+    for i in range(m):
+        fileNameStr = trainingFileList[i]  # 例如9_45.txt
+        fileStr = fileNameStr.split('.')[0]  # split('.')通过.分隔符对字符串进行切片
+        classNumStr = int(fileStr.split('_')[0]) # split('_')通过_分隔符对字符串进行切片
+        hwLabels.append(classNumStr)
+        trainingMat[i,:] =img2vector('E:/workspace/digits/trainingDigits/%s' % fileNameStr)
+    testFileList = listdir('E:/workspace/digits/testDigits')
+    mTest = len(testFileList)
+    errorCount = 0
+    for i in range(mTest):
+        fileNameStr = testFileList[i]
+        fileStr = fileNameStr.split('.')[0]
+        classNumStr = int(fileStr.split('_')[0])
+        vectorUnderTest = img2vector('E:/workspace/digits/testDigits/%s' % fileNameStr)
+        classResult = classify0(vectorUnderTest,trainingMat,hwLabels,3)
+        print('the classifier came back with: %d, the real answer is: %d' % (classResult,classNumStr))
+        if (classResult != classNumStr):
+            errorCount += 1.0
+    print('\n the total number of errors is: %d' % (errorCount))
+    print('\n the total error rate is: %f' % (errorCount/float(mTest)))
+
+handwritingClassTest()
+
+
+# train, label = file2matrix('E:/workspace/digits/testDigits/0_13.txt')
+# handwritingClassTest()
